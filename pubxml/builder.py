@@ -21,25 +21,14 @@ class Builder:
         return self.__makers[key]
 
     def __post_init__(self):
+        nsmap = dict(**self.namespaces)
         if self.default is not None:
-            # remember the default prefix
-            default_prefix = next(
-                (k for k, v in self.namespaces.items() if v == self.default), None
-            )
-            # rewrite namespaces so that the default has prefix of None (this is how
-            # ElementMaker wants it.)
-            self.namespaces = {
-                None: self.default,
-                **{k: v for k, v in self.namespaces.items() if v != self.default},
-            }
-        # map any default prefix to the default namespace's ElementMaker
-        if default_prefix is not None:
-            self.__makers[default_prefix] = ElementMaker(
-                namespace=self.default, nsmap=self.namespaces
-            )
+            prefix = next((k for k, v in nsmap.items() if v == self.default), None)
+            nsmap[None] = nsmap.pop(prefix)
+
         # map all the other prefixes to ElementMakers
         for prefix, uri in self.namespaces.items():
-            self.__makers[prefix] = ElementMaker(namespace=uri, nsmap=self.namespaces)
+            self.__makers[prefix] = ElementMaker(namespace=uri, nsmap=nsmap)
 
     def __call__(self, name, *args, **kwargs):
         return self.__makers[None](name, *args, **kwargs)

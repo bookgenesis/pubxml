@@ -1,8 +1,8 @@
 """
 An XML Document.
 """
-from dataclasses import dataclass
-from io import BytesIO
+from dataclasses import dataclass, field
+from io import BytesIO, IOBase
 from pathlib import Path
 
 from lxml import etree
@@ -12,6 +12,13 @@ from lxml import etree
 class XML:
     tree: etree._ElementTree
     filepath: Path = None
+    namespaces: dict = field(default_factory=dict)
+
+    def __post_init__(self):
+        # if isinstance(self.tree, etree._Element):
+        #     self.tree = etree.ElementTree(self.tree)
+        if not self.namespaces:
+            self.namespaces = {**self.root.nsmap}
 
     @property
     def root(self):
@@ -23,18 +30,20 @@ class XML:
 
     # Queries
 
-    @classmethod
-    def xpath(cls, node, path, namespaces=None, extensions=None, **params):
+    def xpath(self, node, path, namespaces=None, extensions=None, **params):
         return node.xpath(
             path,
-            namespaces=namespaces or node.nsmap,
+            namespaces={
+                k: v
+                for k, v in (namespaces or self.namespaces or node.nsmap).items()
+                if k is not None
+            },
             extensions=extensions,
             **params,
         )
 
-    @classmethod
-    def find(cls, node, path, namespaces=None, extensions=None, **params):
-        results = cls.xpath(
+    def find(self, node, path, namespaces=None, extensions=None, **params):
+        results = self.xpath(
             node,
             path,
             namespaces=namespaces,
@@ -46,28 +55,32 @@ class XML:
     # Input
 
     @classmethod
-    def load(cls, filepath: Path):
+    def load(cls, filepath: Path, namespaces=None):
         return cls(
             filepath=filepath,
             tree=etree.parse(
                 filepath,
                 base_url=f"file://{filepath}",
             ),
+            namespaces=namespaces,
         )
 
     @classmethod
-    def frombytes(cls, xml: bytes, filepath: Path = None):
+    def frombytes(cls, xml: bytes, filepath: Path = None, namespaces=None):
         return cls(
             filepath=filepath,
             tree=etree.parse(
                 BytesIO(xml),
                 base_url=f"file://{filepath}" if filepath else None,
             ),
+            namespaces=namespaces,
         )
 
     @classmethod
-    def fromstring(cls, xml: str, filepath: Path = None):
-        return cls.frombytes(xml.encode("UTF-8"), filepath=filepath)
+    def fromstring(cls, xml: str, filepath: Path = None, namespaces=None):
+        return cls.frombytes(
+            xml.encode("UTF-8"), filepath=filepath, namespaces=namespaces
+        )
 
     # Output
 
@@ -75,7 +88,7 @@ class XML:
         return etree.tounicode(self.tree.getroot())
 
     def text(self):
-        return etree.tounicode(self.tree.getroot(), method='text')
+        return etree.tounicode(self.tree.getroot(), method="text")
 
     def canonicalize(self) -> bytes:
         bytestream = BytesIO()
@@ -86,5 +99,13 @@ class XML:
         if output_path is None:
             output_path = self.filepath
 
-        with open(output_path, "wb") as f:
-            f.write(b"<?xml version='1.0' encoding='UTF-8'?>\n" + self.canonicalize())
+        assert isinstance(
+            output_path, (str, bytes, Path, IOBase)
+        ), f"output_path={output_path} ({type(output_path)}), which is not writeable."
+
+        output = b"<?xml version='1.0' encoding='UTF-8'?>\n" + self.canonicalize()
+        if isinstance(output_path, IOBase):
+            output_path.write(output)
+        else:
+            with open(output_path, "wb") as f:
+                f.write(output)
