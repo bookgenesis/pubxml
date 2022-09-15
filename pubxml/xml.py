@@ -74,6 +74,9 @@ class XML:
     def __str__(self):
         return etree.tounicode(self.tree.getroot())
 
+    def text(self):
+        return etree.tounicode(self.tree.getroot(), method='text')
+
     def canonicalize(self) -> bytes:
         bytestream = BytesIO()
         self.tree.write_c14n(bytestream)
@@ -84,4 +87,4 @@ class XML:
             output_path = self.filepath
 
         with open(output_path, "wb") as f:
-            f.write(self.canonicalize())
+            f.write(b"<?xml version='1.0' encoding='UTF-8'?>\n" + self.canonicalize())
