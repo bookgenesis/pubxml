@@ -95,17 +95,26 @@ class XML:
         self.tree.write_c14n(bytestream)
         return bytestream.getvalue()
 
-    def write(self, output_path=None):
-        if output_path is None:
-            output_path = self.filepath
+    def write(self, file=None):
+        """
+        Write the XML to the given file (defaults to the XML.filepath) as
+        canonicalized bytes. (Canonicalization ensures that the output for the same XML
+        is always the same -- for example, attributes will always occur in the same
+        order -- which makes comparing different versions much more productive.)
+
+        * If file is a string or Path, write to that filesystem location.
+        * If file is a file-like object, write to that file.
+        """
+        if file is None:
+            file = self.filepath
 
         assert isinstance(
-            output_path, (str, bytes, Path, IOBase)
-        ), f"output_path={output_path} ({type(output_path)}), which is not writeable."
+            file, (str, Path, IOBase)
+        ), f"file={file} ({type(file)}), which is not writeable."
 
         output = b"<?xml version='1.0' encoding='UTF-8'?>\n" + self.canonicalize()
-        if isinstance(output_path, IOBase):
-            output_path.write(output)
+        if isinstance(file, IOBase):
+            file.write(output)
         else:
-            with open(output_path, "wb") as f:
+            with open(file, "wb") as f:
                 f.write(output)

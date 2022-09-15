@@ -1,6 +1,15 @@
 """
 The following XML namespaces are commonly used in publishing projects.
 """
+
+
+def namespaces(prefixes):
+    """
+    Return a dict of namespaces with the given prefixes
+    """
+    return {ns: url for ns, url in NS.items() if ns in prefixes}
+
+
 NS = {
     # XML
     "xml": "http://www.w3.org/XML/1998/namespace",
@@ -31,10 +40,3 @@ NS = {
     # Publishing XML
     "pub": "http://publishingxml.org/ns",
 }
-
-
-def namespaces(prefixes):
-    """
-    Return a dict of namespaces with the given prefixes
-    """
-    return {ns: url for ns, url in NS.items() if ns in prefixes}
