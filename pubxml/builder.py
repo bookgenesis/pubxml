@@ -14,24 +14,28 @@ class Builder:
     """
 
     namespaces: dict = field(default_factory=dict)
-    __makers: dict = field(default_factory=dict, init=False)
+    makers: dict = field(default_factory=dict, init=False)
     default: str = None  # default namespace
 
     def __getattr__(self, key):
-        return self.__makers[key]
+        return self.makers[key]
 
     def __post_init__(self):
-        nsmap = dict(**self.namespaces)
+        nsmap = {**self.namespaces}
         if self.default is not None:
             prefix = next((k for k, v in nsmap.items() if v == self.default), None)
             nsmap[None] = nsmap.pop(prefix)
 
         # map all the other prefixes to ElementMakers
         for prefix, uri in self.namespaces.items():
-            self.__makers[prefix] = ElementMaker(namespace=uri, nsmap=nsmap)
+            self.makers[prefix] = ElementMaker(namespace=uri, nsmap=nsmap)
+
+        # If there is no default ElementMaker, create one with no namespaces
+        if None not in self.makers:
+            self.makers[None] = ElementMaker()
 
     def __call__(self, name, *args, **kwargs):
-        return self.__makers[None](name, *args, **kwargs)
+        return self.makers[None](name, *args, **kwargs)
 
     @classmethod
     def one(cls, namespace=None):
@@ -40,9 +44,11 @@ class Builder:
         namespace as the default.
         """
         if namespace is None:
-            return cls()
+            B = cls().makers[None]
         else:
-            return cls({None: namespace}, default=namespace)
+            B = cls({None: namespace}, default=namespace)
+
+        return B.makers[None]
 
 
 class ElementMaker(lxml.builder.ElementMaker):
